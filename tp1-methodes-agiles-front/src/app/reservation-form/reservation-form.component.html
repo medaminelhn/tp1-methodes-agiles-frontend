@@ -1,0 +1,61 @@
+<h2>Demande de réservation</h2>
+
+<form [formGroup]="form" (ngSubmit)="envoyer()">
+
+  <label>Professeur
+    <select formControlName="utilisateurId" (change)="refreshSolde()">
+      <option [ngValue]="null">-- choisir --</option>
+      @for (u of utilisateurs; track u.id) {
+        <option [ngValue]="u.id">{{ u.prenom }} {{ u.nom }}</option>
+      }
+    </select>
+  </label>
+
+  <label>Matière
+    <input formControlName="matiere" />
+  </label>
+
+  <label>Semestre
+    <select formControlName="semestreId" (change)="refreshSolde()">
+      <option [ngValue]="null">-- choisir --</option>
+      @for (s of semestres; track s.id) {
+        <option [ngValue]="s.id">{{ s.libelle }}</option>
+      }
+    </select>
+  </label>
+
+  <label>Volume horaire du semestre (h)
+    <input type="number" formControlName="volumeHoraireTotal" min="2" step="2" />
+  </label>
+  @if (solde?.volumeTotal != null) {
+    <p class="info">Déjà consommé : {{ solde!.consomme }}h, restant : {{ solde!.restant }}h</p>
+  }
+
+  <h3>Créneaux de 2h</h3>
+  <div formArrayName="creneaux">
+    @for (c of creneaux.controls; track $index) {
+      <div class="creneau" [formGroupName]="$index">
+        <input type="datetime-local" formControlName="debut" />
+        <select formControlName="salleId">
+          <option [ngValue]="null">-- salle --</option>
+          @for (s of salles; track s.id) {
+            <option [ngValue]="s.id">{{ s.nom }} ({{ s.capacite }})</option>
+          }
+        </select>
+        <button type="button" (click)="creneaux.removeAt($index)">✕</button>
+      </div>
+    }
+  </div>
+  <button type="button" (click)="addCreneau()">+ Ajouter un créneau</button>
+  <p>Total demandé : {{ heures }}h</p>
+
+  <label>Commentaire (salle souhaitée, équipement nécessaire…)
+    <textarea formControlName="commentaire" maxlength="255"></textarea>
+  </label>
+
+  @if (avertissement) { <p class="warn">{{ avertissement }}</p> }
+  @if (erreur) { <p class="error">{{ erreur }}</p> }
+  @if (succes) { <p class="success">{{ succes }}</p> }
+
+  <button type="submit" [disabled]="!peutEnvoyer">Envoyer la demande</button>
+</form>

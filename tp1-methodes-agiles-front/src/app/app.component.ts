@@ -1,12 +1,10 @@
 import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { ReservationFormComponent } from './reservation-form/reservation-form.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
-  templateUrl: './app.component.html',
-  styleUrl: './app.component.scss'
+  standalone: true,
+  imports: [ReservationFormComponent],
+  templateUrl: './app.component.html'
 })
-export class AppComponent {
-  title = 'tp1-methodes-agiles-front';
-}
+export class AppComponent {}
