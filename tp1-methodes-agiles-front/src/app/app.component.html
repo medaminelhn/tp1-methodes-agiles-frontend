@@ -1,0 +1,174 @@
+<div class="app-shell">
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">GESTION DES SALLES</div>
+      <h1>Mon calendrier</h1>
+      <p>Consultez vos réservations et envoyez une demande d’annulation ou de modification.</p>
+    </div>
+    <div class="connection-status" [class.loading-state]="loading">
+      <span class="status-dot"></span>
+      {{ loading ? 'Synchronisation…' : 'Synchronisé' }}
+    </div>
+  </header>
+
+  <section class="toolbar">
+    <label class="professor-select">
+      Professeur
+      <select [(ngModel)]="utilisateurId" (change)="loadCalendar()" [disabled]="!utilisateurs.length">
+        <option [ngValue]="null">Sélectionner un professeur</option>
+        <option *ngFor="let utilisateur of utilisateurs" [ngValue]="utilisateur.id">
+          {{ professeurLabel(utilisateur) }}{{ utilisateur.email ? ' — ' + utilisateur.email : '' }}
+        </option>
+      </select>
+    </label>
+    <label>
+      Semestre ID <span class="optional">(optionnel)</span>
+      <input type="number" min="1" [(ngModel)]="semestreId" (keyup.enter)="loadCalendar()" placeholder="Tous" />
+    </label>
+    <button class="secondary-button" type="button" (click)="loadUtilisateurs()">Changer de professeur</button>
+    <button class="primary" type="button" (click)="loadCalendar()" [disabled]="!utilisateurId">Actualiser</button>
+  </section>
+
+  <div class="alert error" *ngIf="error">{{ error }}</div>
+  <div class="alert success" *ngIf="success">{{ success }}</div>
+
+  <main class="content">
+    <section class="calendar-card">
+      <div class="calendar-header">
+        <div class="month-navigation">
+          <button type="button" class="icon-button" (click)="previousMonth()" aria-label="Mois précédent">‹</button>
+          <h2>{{ monthLabel | titlecase }}</h2>
+          <button type="button" class="icon-button" (click)="nextMonth()" aria-label="Mois suivant">›</button>
+        </div>
+        <button type="button" class="today-button" (click)="goToToday()">Aujourd’hui</button>
+      </div>
+
+      <div class="weekdays">
+        <div *ngFor="let day of ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']">{{ day }}</div>
+      </div>
+
+      <div class="calendar-grid">
+        <div class="calendar-day" *ngFor="let day of calendarDays" [class.other-month]="!isCurrentMonth(day)" [class.today]="isToday(day)">
+          <div class="day-number">{{ day.getDate() }}</div>
+          <button
+            class="event"
+            *ngFor="let reservation of reservationsForDay(day)"
+            type="button"
+            (click)="openReservation(reservation)"
+            [class.pending]="reservation.demandeStatut === 'EN_ATTENTE'"
+          >
+            <strong>{{ formatTime(reservation.dateDebut) }}–{{ formatTime(reservation.dateFin) }}</strong>
+            <span>{{ reservation.matiere || 'Réservation' }}</span>
+            <small>Salle {{ reservation.salleId }}</small>
+          </button>
+        </div>
+      </div>
+
+      <div class="empty-state" *ngIf="!loading && reservations.length === 0">
+        Aucune réservation trouvée pour ce professeur.
+      </div>
+    </section>
+
+    <aside class="side-panel" *ngIf="selectedReservation; else noSelection">
+      <div class="panel-heading">
+        <div>
+          <span class="panel-label">RÉSERVATION #{{ selectedReservation.id }}</span>
+          <h2>{{ selectedReservation.matiere || 'Réservation' }}</h2>
+        </div>
+        <button type="button" class="close-button" (click)="closeDetails()">×</button>
+      </div>
+
+      <div class="details">
+        <div class="detail-row">
+          <span>Date</span>
+          <strong>{{ formatDate(selectedReservation.dateDebut) }}</strong>
+        </div>
+        <div class="detail-row">
+          <span>Fin</span>
+          <strong>{{ formatTime(selectedReservation.dateFin) }}</strong>
+        </div>
+        <div class="detail-row">
+          <span>Salle</span>
+          <strong>Salle {{ selectedReservation.salleId }}</strong>
+        </div>
+        <div class="detail-row">
+          <span>État</span>
+          <strong class="badge" [class.pending-badge]="selectedReservation.demandeStatut === 'EN_ATTENTE'">
+            {{ statusLabel(selectedReservation) }}
+          </strong>
+        </div>
+      </div>
+
+      <div class="request-summary" *ngIf="selectedReservation.demandeStatut === 'EN_ATTENTE'">
+        <strong>Demande en attente</strong>
+        <p *ngIf="selectedReservation.demandeType === 'ANNULATION'">Vous avez demandé l’annulation de cette réservation.</p>
+        <p *ngIf="selectedReservation.demandeType === 'MODIFICATION'">
+          Modification demandée : salle {{ selectedReservation.demandeSalleId }},
+          {{ formatDate(selectedReservation.demandeDateDebut) }}.
+        </p>
+        <p *ngIf="selectedReservation.demandeCommentaire">{{ selectedReservation.demandeCommentaire }}</p>
+      </div>
+
+      <div class="actions" *ngIf="!requestMode && selectedReservation.demandeStatut !== 'EN_ATTENTE'">
+        <button type="button" class="danger-button" (click)="startCancellationRequest()">Demander l’annulation</button>
+        <button type="button" class="secondary-button" (click)="startModificationRequest()">Demander une modification</button>
+      </div>
+
+      <div class="request-form" *ngIf="requestMode === 'annulation'">
+        <h3>Demande d’annulation</h3>
+        <p>La réservation restera inchangée jusqu’au traitement de votre demande.</p>
+        <label>
+          Commentaire <span class="optional">(optionnel)</span>
+          <textarea [(ngModel)]="requestCommentaire" rows="3" placeholder="Expliquez votre demande…"></textarea>
+        </label>
+        <div class="form-actions">
+          <button type="button" class="secondary-button" (click)="closeRequestForm()">Retour</button>
+          <button type="button" class="danger-button" (click)="submitCancellation()" [disabled]="loading">Envoyer la demande</button>
+        </div>
+      </div>
+
+      <div class="request-form" *ngIf="requestMode === 'modification'">
+        <h3>Demande de modification</h3>
+        <p>La nouvelle date de fin sera calculée automatiquement à +2 h par le backend.</p>
+        <label>
+          Salle
+          <input type="number" min="1" [(ngModel)]="modificationSalleId" />
+        </label>
+        <div class="form-grid">
+          <label>
+            Nouvelle date
+            <input type="date" [(ngModel)]="modificationDate" />
+          </label>
+          <label>
+            Nouvelle heure
+            <input type="time" [(ngModel)]="modificationTime" />
+          </label>
+        </div>
+        <label>
+          Matière <span class="optional">(optionnel)</span>
+          <input type="text" [(ngModel)]="modificationMatiere" placeholder="Matière" />
+        </label>
+        <label>
+          Commentaire <span class="optional">(optionnel)</span>
+          <textarea [(ngModel)]="requestCommentaire" rows="3" placeholder="Expliquez le changement…"></textarea>
+        </label>
+        <div class="form-actions">
+          <button type="button" class="secondary-button" (click)="closeRequestForm()">Retour</button>
+          <button type="button" class="primary" (click)="submitModification()" [disabled]="loading">Envoyer la demande</button>
+        </div>
+      </div>
+    </aside>
+
+    <ng-template #noSelection>
+      <aside class="side-panel empty-panel">
+        <div class="empty-icon">▦</div>
+        <h2>Sélectionnez une réservation</h2>
+        <p>Cliquez sur un créneau du calendrier pour consulter son état ou envoyer une demande.</p>
+      </aside>
+    </ng-template>
+  </main>
+
+  <footer>
+    {{ selectedUtilisateur ? 'Professeur : ' + professeurLabel(selectedUtilisateur) + ' · ' : '' }}Mise à jour automatique toutes les 5 secondes · API <code>/api/calendrier</code>
+  </footer>
+</div>
