@@ -54,6 +54,7 @@ export class AppComponent implements OnInit {
   salles: Salle[] = [];
   selectedReservation?: ReservationView;
   lastAlternative?: AlternativeReservation;
+  selectedSalleId = '';
   loading = false;
   actionLoading = false;
   message = '';
@@ -94,6 +95,7 @@ export class AppComponent implements OnInit {
         this.applyLocalFilters();
         this.selectedReservation = this.filteredReservations.find(r => r.id === this.selectedReservation?.id)
           ?? this.filteredReservations[0];
+        this.selectedSalleId = this.selectedReservation ? String(this.selectedReservation.salleId) : '';
         this.loading = false;
       },
       error: error => {
@@ -121,6 +123,7 @@ export class AppComponent implements OnInit {
 
   selectReservation(reservation: ReservationView): void {
     this.selectedReservation = reservation;
+    this.selectedSalleId = String(reservation.salleId);
     this.lastAlternative = undefined;
   }
 
@@ -132,8 +135,35 @@ export class AppComponent implements OnInit {
     this.executeAction(reservation.id, 'refuser');
   }
 
+  changeRoom(reservation: ReservationView): void {
+    if (!this.selectedSalleId) {
+      this.showMessage('Selectionnez une salle.', 'error');
+      return;
+    }
+    this.actionLoading = true;
+    this.http.patch<ReservationActionResponse>(`${this.apiUrl}/reservations/${reservation.id}/salle`, {
+      salleId: Number(this.selectedSalleId)
+    }).subscribe({
+      next: response => {
+        this.actionLoading = false;
+        this.lastAlternative = response.alternative;
+        this.showMessage(response.message, 'success');
+        this.loadSalles();
+        this.loadReservations();
+      },
+      error: error => {
+        this.actionLoading = false;
+        this.showMessage(this.errorMessage(error), 'error');
+      }
+    });
+  }
+
   canAct(reservation: ReservationView): boolean {
     return reservation.statut === 'EN_ATTENTE';
+  }
+
+  canChangeRoom(reservation: ReservationView): boolean {
+    return reservation.statut !== 'REFUSEE' && reservation.statut !== 'ANNULEE';
   }
 
   statusLabel(statut: string): string {

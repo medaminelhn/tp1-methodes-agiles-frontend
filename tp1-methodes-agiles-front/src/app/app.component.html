@@ -108,6 +108,21 @@
         </div>
       </dl>
 
+      <div class="room-editor" *ngIf="canChangeRoom(selectedReservation)">
+        <label>
+          Salle attribuee
+          <select [(ngModel)]="selectedSalleId">
+            <option value="">Selectionner une salle</option>
+            <option *ngFor="let salle of salles" [value]="salle.id">
+              {{ salle.nom }} - {{ salle.disponible || salle.id === selectedReservation.salleId ? 'disponible' : 'indisponible' }}
+            </option>
+          </select>
+        </label>
+        <button type="button" (click)="changeRoom(selectedReservation)" [disabled]="actionLoading">
+          Modifier la salle
+        </button>
+      </div>
+
       <div class="alternative" *ngIf="lastAlternative">
         <strong>Alternative disponible</strong>
         <span>{{ lastAlternative.salleNom }} - {{ lastAlternative.debut | date:'dd/MM/yyyy HH:mm' }} a {{ lastAlternative.fin | date:'HH:mm' }}</span>
