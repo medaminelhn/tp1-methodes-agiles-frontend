@@ -1,1 +1,147 @@
-<app-reservation-form />
+<main class="page-shell">
+  <section class="toolbar">
+    <div>
+      <p class="eyebrow">Secretariat</p>
+      <h1>Gestion des reservations</h1>
+    </div>
+
+    <div class="feedback" [class.error]="messageType === 'error'" *ngIf="message">
+      {{ message }}
+    </div>
+  </section>
+
+  <section class="filters" aria-label="Filtres des reservations">
+    <label>
+      Recherche
+      <input type="search" [(ngModel)]="filters.recherche" (ngModelChange)="applyLocalFilters()" placeholder="Professeur, salle, matiere">
+    </label>
+
+    <label>
+      Statut
+      <select [(ngModel)]="filters.statut" (ngModelChange)="loadReservations()">
+        <option value="">Tous</option>
+        <option value="EN_ATTENTE">En attente</option>
+        <option value="CONFIRMEE">Confirmee</option>
+        <option value="REFUSEE">Refusee</option>
+        <option value="ANNULEE">Annulee</option>
+      </select>
+    </label>
+
+    <label>
+      Salle
+      <select [(ngModel)]="filters.salleId" (ngModelChange)="loadReservations()">
+        <option value="">Toutes</option>
+        <option *ngFor="let salle of salles" [value]="salle.id">{{ salle.nom }}</option>
+      </select>
+    </label>
+
+    <button type="button" (click)="loadReservations()" [disabled]="loading">Actualiser</button>
+  </section>
+
+  <section class="workspace">
+    <div class="table-panel">
+      <div class="table-header">
+        <strong>{{ filteredReservations.length }} reservation(s)</strong>
+        <span *ngIf="loading">Chargement...</span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Professeur</th>
+            <th>Salle</th>
+            <th>Date</th>
+            <th>Horaire</th>
+            <th>Duree</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let reservation of filteredReservations"
+              (click)="selectReservation(reservation)"
+              [class.selected]="selectedReservation?.id === reservation.id">
+            <td>{{ reservation.professeurNom }}</td>
+            <td>{{ reservation.salleNom }}</td>
+            <td>{{ reservation.dateDebut | date:'dd/MM/yyyy' }}</td>
+            <td>{{ reservation.dateDebut | date:'HH:mm' }} - {{ reservation.dateFin | date:'HH:mm' }}</td>
+            <td>{{ reservation.dureeHeures }}h</td>
+            <td><span class="status" [ngClass]="statusClass(reservation.statut)">{{ statusLabel(reservation.statut) }}</span></td>
+          </tr>
+          <tr *ngIf="!loading && filteredReservations.length === 0">
+            <td colspan="6" class="empty">Aucune reservation trouvee.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <aside class="details-panel" *ngIf="selectedReservation; else noSelection">
+      <div class="details-heading">
+        <div>
+          <p class="eyebrow">Reservation #{{ selectedReservation.id }}</p>
+          <h2>{{ selectedReservation.matiere || 'Reservation de salle' }}</h2>
+        </div>
+        <span class="status" [ngClass]="statusClass(selectedReservation.statut)">
+          {{ statusLabel(selectedReservation.statut) }}
+        </span>
+      </div>
+
+      <dl>
+        <div>
+          <dt>Professeur</dt>
+          <dd>{{ selectedReservation.professeurNom }}</dd>
+        </div>
+        <div>
+          <dt>Salle</dt>
+          <dd>{{ selectedReservation.salleNom }}</dd>
+        </div>
+        <div>
+          <dt>Date et horaire</dt>
+          <dd>{{ selectedReservation.dateDebut | date:'dd/MM/yyyy HH:mm' }} - {{ selectedReservation.dateFin | date:'HH:mm' }}</dd>
+        </div>
+        <div>
+          <dt>Duree</dt>
+          <dd>{{ selectedReservation.dureeHeures }} heures</dd>
+        </div>
+        <div>
+          <dt>Motif</dt>
+          <dd>{{ selectedReservation.motif || 'Non renseigne' }}</dd>
+        </div>
+      </dl>
+
+      <div class="room-editor" *ngIf="canChangeRoom(selectedReservation)">
+        <label>
+          Salle attribuee
+          <select [(ngModel)]="selectedSalleId">
+            <option value="">Selectionner une salle</option>
+            <option *ngFor="let salle of salles" [value]="salle.id">
+              {{ salle.nom }} - {{ salle.disponible || salle.id === selectedReservation.salleId ? 'disponible' : 'indisponible' }}
+            </option>
+          </select>
+        </label>
+        <button type="button" (click)="changeRoom(selectedReservation)" [disabled]="actionLoading">
+          Modifier la salle
+        </button>
+      </div>
+
+      <div class="alternative" *ngIf="lastAlternative">
+        <strong>Alternative disponible</strong>
+        <span>{{ lastAlternative.salleNom }} - {{ lastAlternative.debut | date:'dd/MM/yyyy HH:mm' }} a {{ lastAlternative.fin | date:'HH:mm' }}</span>
+      </div>
+
+      <div class="actions" *ngIf="canAct(selectedReservation)">
+        <button type="button" class="primary" (click)="acceptReservation(selectedReservation)" [disabled]="actionLoading">
+          Accepter
+        </button>
+        <button type="button" class="danger" (click)="rejectReservation(selectedReservation)" [disabled]="actionLoading">
+          Refuser
+        </button>
+      </div>
+    </aside>
+
+    <ng-template #noSelection>
+      <aside class="details-panel muted">
+        <p>Selectionnez une reservation pour consulter les details et les actions disponibles.</p>
+      </aside>
+    </ng-template>
+  </section>
+</main>
